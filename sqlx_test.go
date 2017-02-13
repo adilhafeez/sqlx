@@ -869,6 +869,8 @@ func TestOmitEmptySelectNil(t *testing.T) {
 		create: `
 			CREATE TABLE tt (
 				id int,
+				id2 int,
+				id3 int,
 				value text,
 				value2 text
 			);`,
@@ -878,13 +880,15 @@ func TestOmitEmptySelectNil(t *testing.T) {
 	RunWithSchema(schema, t, func(db *DB, t *testing.T) {
 		type TT struct {
 			ID    int	`db:"id,omitempty"`
+			ID2   int	`db:"id2,omitempty"`
+			ID3   int	`db:"id3"`
 			Value string	`db:"value"`
 			Value2 string	`db:"value2,omitempty"`
 		}
 		var v TT
 		r := db.Rebind
 
-		db.MustExec(r(`INSERT INTO tt (value, value2) VALUES ('test', NULL)`))
+		db.MustExec(r(`INSERT INTO tt (id2, value, value2, id3) VALUES (100, 'test', NULL, 500)`))
 		db.Get(&v, r(`SELECT * FROM tt`))
 		if v.Value != "test" {
 			t.Errorf("Expecting value to be 'test', got %v", v.Value)
@@ -892,11 +896,18 @@ func TestOmitEmptySelectNil(t *testing.T) {
 		if v.ID != 0 {
 			t.Errorf("Expecting id of 0, got %v", v.ID)
 		}
+		if v.ID2 != 100 {
+			t.Errorf("Expecting id2 of 100, got %v", v.ID2)
+		}
+		if v.ID3 != 500 {
+			t.Errorf("Expecting id3 of 500, got %v", v.ID3)
+		}
 		if v.Value2 != "" {
 			t.Errorf("Expecting Value2 of '', got %v", v.Value2)
 		}
 	})
 }
+
 
 
 func TestScanError(t *testing.T) {

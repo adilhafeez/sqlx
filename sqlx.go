@@ -768,8 +768,10 @@ func (r *Row) scanAny(dest interface{}, structOnly bool) error {
 	values := make([]interface{}, len(columns))
 	err = fieldsByTraversal(v, fields, values, true)
 	//TODO: update other places with omitempty
+	origTypesPtr := make([]interface{}, len(columns))
 	for idx, isOmitEmpty := range omitempty {
 		if isOmitEmpty {
+			origTypesPtr[idx] = values[idx]
 			switch values[idx].(type) {
 			case *int, *int8, *int16, *int32, *int64, *uint, *uint8, *uint16, *uint32, *uint64:
 				values[idx] = &sql.NullInt64{}
@@ -796,13 +798,49 @@ func (r *Row) scanAny(dest interface{}, structOnly bool) error {
 		if isOmitEmpty {
 			switch t := values[idx].(type) {
 			case *sql.NullInt64:
-				values[idx] = reflect.ValueOf(t.Int64).Interface()
+				switch tt := origTypesPtr[idx].(type){
+				case *int:
+					*tt = int(t.Int64)
+				case *int8:
+					*tt = int8(t.Int64)
+				case *int16:
+					*tt = int16(t.Int64)
+				case *int32:
+					*tt = int32(t.Int64)
+				case *int64:
+					*tt = t.Int64
+				case *uint:
+					*tt = uint(t.Int64)
+				case *uint8:
+					*tt = uint8(t.Int64)
+				case *uint16:
+					*tt = uint16(t.Int64)
+				case *uint32:
+					*tt = uint32(t.Int64)
+				case *uint64:
+					*tt = uint64(t.Int64)
+				}
 			case *sql.NullString:
-				values[idx] = reflect.ValueOf(t.String).Interface()
+				switch tt := origTypesPtr[idx].(type){
+				case *string:
+					if t.Valid {
+						*tt = t.String
+					} else {
+						*tt = ""
+					}
+				}
 			case *sql.NullFloat64:
-				values[idx] = reflect.ValueOf(t.Float64).Interface()
+				switch tt := origTypesPtr[idx].(type){
+				case *float32:
+					*tt = float32(t.Float64)
+				case *float64:
+					*tt = t.Float64
+				}
 			case *sql.NullBool:
-				values[idx] = reflect.ValueOf(t.Bool).Interface()
+				switch tt := origTypesPtr[idx].(type){
+				case *bool:
+					*tt = t.Bool
+				}
 			}
 		}
 	}
