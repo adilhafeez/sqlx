@@ -864,6 +864,41 @@ func TestNilInserts(t *testing.T) {
 	})
 }
 
+func TestOmitEmptySelectNil(t *testing.T) {
+	var schema = Schema{
+		create: `
+			CREATE TABLE tt (
+				id int,
+				value text,
+				value2 text
+			);`,
+		drop: "drop table tt;",
+	}
+
+	RunWithSchema(schema, t, func(db *DB, t *testing.T) {
+		type TT struct {
+			ID    int	`db:"id,omitempty"`
+			Value string	`db:"value"`
+			Value2 string	`db:"value2,omitempty"`
+		}
+		var v TT
+		r := db.Rebind
+
+		db.MustExec(r(`INSERT INTO tt (value, value2) VALUES ('test', NULL)`))
+		db.Get(&v, r(`SELECT * FROM tt`))
+		if v.Value != "test" {
+			t.Errorf("Expecting value to be 'test', got %v", v.Value)
+		}
+		if v.ID != 0 {
+			t.Errorf("Expecting id of 0, got %v", v.ID)
+		}
+		if v.Value2 != "" {
+			t.Errorf("Expecting Value2 of '', got %v", v.Value2)
+		}
+	})
+}
+
+
 func TestScanError(t *testing.T) {
 	var schema = Schema{
 		create: `

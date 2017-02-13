@@ -760,19 +760,54 @@ func (r *Row) scanAny(dest interface{}, structOnly bool) error {
 
 	m := r.Mapper
 
-	fields, _ := m.TraversalsByName(v.Type(), columns)
+	fields, omitempty := m.TraversalsByName(v.Type(), columns)
 	// if we are not unsafe and are missing fields, return an error
 	if f, err := missingFields(fields); err != nil && !r.unsafe {
 		return fmt.Errorf("missing destination name %s in %T", columns[f], dest)
 	}
 	values := make([]interface{}, len(columns))
-
 	err = fieldsByTraversal(v, fields, values, true)
+	//TODO: update other places with omitempty
+	for idx, isOmitEmpty := range omitempty {
+		if isOmitEmpty {
+			switch values[idx].(type) {
+			case *int, *int8, *int16, *int32, *int64, *uint, *uint8, *uint16, *uint32, *uint64:
+				values[idx] = &sql.NullInt64{}
+			case *float32, *float64:
+				values[idx] = &sql.NullFloat64{}
+			case *bool:
+				values[idx] = &sql.NullBool{}
+			case *string:
+				values[idx] = &sql.NullString{}
+			default:
+				return fmt.Errorf("invalid type received: %s", reflect.TypeOf(values[idx]))
+			}
+		}
+	}
 	if err != nil {
 		return err
 	}
 	// scan into the struct field pointers and append to our results
-	return r.Scan(values...)
+	err = r.Scan(values...)
+	if err != nil {
+		return err
+	}
+	for idx, isOmitEmpty := range omitempty {
+		if isOmitEmpty {
+			switch t := values[idx].(type) {
+			case *sql.NullInt64:
+				values[idx] = reflect.ValueOf(t.Int64).Interface()
+			case *sql.NullString:
+				values[idx] = reflect.ValueOf(t.String).Interface()
+			case *sql.NullFloat64:
+				values[idx] = reflect.ValueOf(t.Float64).Interface()
+			case *sql.NullBool:
+				values[idx] = reflect.ValueOf(t.Bool).Interface()
+			}
+		}
+	}
+
+	return nil
 }
 
 // StructScan a single Row into dest.
